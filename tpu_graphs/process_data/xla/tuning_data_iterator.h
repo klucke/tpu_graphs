@@ -24,11 +24,11 @@ limitations under the License.
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "tpu_graphs/proto/tuning.pb.h"
 #include "tensorflow/compiler/xla/service/hlo.pb.h"
-#include "tensorflow/compiler/xla/status.h"
-#include "tensorflow/compiler/xla/statusor.h"
 #include "tensorflow/core/platform/errors.h"
 #include "tensorflow/core/platform/tstring.h"
 
@@ -98,7 +98,7 @@ class TuningDataIterator {
   // normalization values.
   // * If `take_every_ > 1`, take one out of `take_every_` samples.
   // * If `subsample_rate_ < 1.0`, randomly subsample with such probability.
-  Status LoadAndPrepareData(const tf::tstring& source_path,
+  absl::Status LoadAndPrepareData(const tf::tstring& source_path,
                             const tf::tstring& proto_data) {
     source_path_ = source_path;
     TF_RETURN_IF_ERROR(LoadData(source_path, proto_data));
@@ -106,7 +106,7 @@ class TuningDataIterator {
       FilterOutSamplesWithoutNormalization();
     }
     Subsample(take_every_, sample_rate_, samples_limit_);
-    return OkStatus();
+    return absl::OkStatus();
   }
 
   // Name of the class.
@@ -172,7 +172,7 @@ class TuningDataIterator {
 
  private:
   // Loads protobuf from source_path.
-  virtual Status LoadData(const tf::tstring& source_path,
+  virtual absl::Status LoadData(const tf::tstring& source_path,
                           const tf::tstring& proto_data) = 0;
 
   // Drops samples without normalization values from an internal storage.
@@ -190,11 +190,11 @@ class TuningDataIterator {
 // during the life of a TuningDataIterator object.
 // If `proto_data` is empty, this function will attempt to create a
 // TuningDataIterator for data reading from `source_path`.
-StatusOr<std::unique_ptr<TuningDataIterator>> CreateTuningDataIterator(
+absl::StatusOr<std::unique_ptr<TuningDataIterator>> CreateTuningDataIterator(
     TuningDataType type, const tf::tstring& source_path,
     const tf::tstring& proto_data, const TuningDataIterator::Options& options);
 
-inline StatusOr<std::unique_ptr<TuningDataIterator>> CreateTuningDataIterator(
+inline absl::StatusOr<std::unique_ptr<TuningDataIterator>> CreateTuningDataIterator(
     TuningDataType type, const tf::tstring& source_path) {
   TuningDataIterator::Options default_options;
   return CreateTuningDataIterator(type, source_path, /*proto_data=*/"",
@@ -215,7 +215,7 @@ class ModuleTuningDataIterator : public TuningDataIterator {
   void NextSample() override { ++idx_; }
   void Finalize() const override { CHECK(idx_ == GetSampleCount()); }
 
-  Status LoadData(const tf::tstring& source_path,
+  absl::Status LoadData(const tf::tstring& source_path,
                   const tf::tstring& proto_data) override;
   const HloModuleProto& GetHloModule() const override;
   const std::vector<int>& GetConfigIndexToNode() const override;
@@ -252,7 +252,7 @@ class OpTuningDataIterator : public TuningDataIterator {
   void NextSample() override;
   void Finalize() const override;
 
-  Status LoadData(const tf::tstring& source_path,
+  absl::Status LoadData(const tf::tstring& source_path,
                   const tf::tstring& proto_data) override;
   const HloModuleProto& GetHloModule() const override;
   const std::vector<int>& GetConfigIndexToNode() const {
@@ -267,7 +267,7 @@ class OpTuningDataIterator : public TuningDataIterator {
   void Subsample(const int take_every, const float sample_rate,
                  const float samples_limit) override;
 
-  Status LoadModuleTuningProto(
+  absl::Status LoadModuleTuningProto(
       tpu_graphs::ModuleTuningData* module_tuning_data);
 
   tpu_graphs::TuningData tuning_data_;
