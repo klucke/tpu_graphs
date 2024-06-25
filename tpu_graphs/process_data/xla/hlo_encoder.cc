@@ -23,17 +23,17 @@ limitations under the License.
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "tpu_graphs/process_data/xla/featurizers.h"
 #include "tpu_graphs/process_data/xla/hlo_opcode.h"
 #include "tpu_graphs/proto/tuning.pb.h"
 #include "tensorflow/compiler/xla/service/hlo.pb.h"
-#include "tensorflow/compiler/xla/status.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor_shape.h"
 #include "tensorflow/core/framework/tensor_types.h"
-#include "tensorflow/core/platform/statusor.h"
 #include "tensorflow/core/util/sparse/sparse_tensor.h"
 
 namespace xla {
@@ -63,7 +63,7 @@ CollectComputationEntries(
 // order in-place. For an example, see:
 // https://www.tensorflow.org/versions/r2.0/api_docs/python/tf/sparse/reorder
 template <typename T>
-static Status ReorderSparseTensor(tf::Tensor* indices, tf::Tensor* values,
+static absl::Status ReorderSparseTensor(tf::Tensor* indices, tf::Tensor* values,
                                   tf::TensorShape input_shape) {
   sparse::SparseTensor::ShapeArray std_order(input_shape.dims());
   std::iota(std_order.begin(), std_order.end(), 0);
@@ -75,7 +75,7 @@ static Status ReorderSparseTensor(tf::Tensor* indices, tf::Tensor* values,
   reordered_sp.Reorder<T>(std_order);
   *indices = reordered_sp.indices();
   *values = reordered_sp.values();
-  return OkStatus();
+  return absl::OkStatus();
 }
 
 // Check if the given `indices` matrix has unique rows.
@@ -257,7 +257,7 @@ void EdgeListAdjMatrixBuilder::AddEdge(const int64_t from, const int64_t to) {
   max_index_ = std::max(std::max(max_index_, from_idx), to_idx);
 }
 
-Status EdgeListAdjMatrixBuilder::Finalize() {
+absl::Status EdgeListAdjMatrixBuilder::Finalize() {
   // values_out_ is simple... it's just a bunch of ones!
   values_out_->vec<uint8_t>().setConstant(1);
 
@@ -282,7 +282,7 @@ Status EdgeListAdjMatrixBuilder::Finalize() {
       << " elements) but was " << edges_added_;
   CHECK_EQ(SparseTensorIndicesAreUnique(indices_out_), true)
       << "Adj. matrix sparse tensor indices were not unique";
-  return OkStatus();
+  return absl::OkStatus();
 }
 
 DenseNeighborIndicesBuilder::DenseNeighborIndicesBuilder(
@@ -353,11 +353,11 @@ void DenseNeighborIndicesBuilder::AddEdge(const int64_t from,
   neighbor_masks_->matrix<float>()(node_offset_ + from_idx, neighbor_idx) = 1;
 }
 
-Status DenseNeighborIndicesBuilder::Finalize() {
+absl::Status DenseNeighborIndicesBuilder::Finalize() {
   AdvanceModule();
   CHECK_EQ(node_id_, module_ids_->dim_size(0));
   CHECK_EQ(module_id_, neighbor_counts_.size());
-  return OkStatus();
+  return absl::OkStatus();
 }
 
 void HloEncoder::AdvanceModule() {
@@ -378,14 +378,14 @@ void HloEncoder::AdvanceNode() {
   }
 }
 
-Status HloEncoder::Finalize() {
+absl::Status HloEncoder::Finalize() {
   opcodes_builder_->Finalize();
   extra_features_builder_->Finalize();
   TF_RETURN_IF_ERROR(operand_adj_matrix_builder_->Finalize());
   if (user_adj_matrix_builder_) {
     TF_RETURN_IF_ERROR(user_adj_matrix_builder_->Finalize());
   }
-  return OkStatus();
+  return absl::OkStatus();
 }
 
 void HloEncoder::PushInstructionFeatures(
@@ -395,7 +395,7 @@ void HloEncoder::PushInstructionFeatures(
                           parent_computation, include_features_);
 }
 
-Status HloEncoder::EncodeHloModule(
+absl::Status HloEncoder::EncodeHloModule(
     const HloModuleProto& module,
     const std::optional<int64_t> computation_unique_id) {
   // Advance each output tensor to a new row for the next module.
@@ -466,7 +466,7 @@ Status HloEncoder::EncodeHloModule(
   if (computation_splits_.back() < instruction_count) {
     computation_splits_.push_back(instruction_count);
   }
-  return OkStatus();
+  return absl::OkStatus();
 }
 
 void HloEncoder::CollectStats(const HloModuleProto& module,
@@ -582,7 +582,7 @@ void HloEncoder::CollectStats(const HloComputationProto& computation,
   }
 }
 
-tf::StatusOr<int> SparseHloEncoder::CreateOutputBuilders(
+absl::StatusOr<int> SparseHloEncoder::CreateOutputBuilders(
     const HloModuleStat& stat, tf::OpKernelContext* context) {
   const int module_count = stat.identifier_vocabs.size();
   Outputs output_tensors;
