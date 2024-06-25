@@ -24,12 +24,12 @@ limitations under the License.
 #include <vector>
 
 #include "absl/random/random.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include "tpu_graphs/proto/tuning.pb.h"
 #include "tensorflow/compiler/xla/service/hlo.pb.h"
-#include "tensorflow/compiler/xla/status.h"
-#include "tensorflow/compiler/xla/statusor.h"
 #include "tensorflow/compiler/xla/xla_data.pb.h"
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/platform/errors.h"
@@ -40,7 +40,7 @@ namespace xla {
 
 namespace tf = ::tensorflow;
 
-StatusOr<std::unique_ptr<TuningDataIterator>> CreateTuningDataIterator(
+absl::StatusOr<std::unique_ptr<TuningDataIterator>> CreateTuningDataIterator(
     TuningDataType type, const tf::tstring& source_path,
     const tf::tstring& proto_data, const TuningDataIterator::Options& options) {
   if (options.fingerprint_range && type != kOpTuning) {
@@ -64,7 +64,7 @@ StatusOr<std::unique_ptr<TuningDataIterator>> CreateTuningDataIterator(
   return tuning_data;
 }
 
-Status ModuleTuningDataIterator::LoadData(const tf::tstring& source_path,
+absl::Status ModuleTuningDataIterator::LoadData(const tf::tstring& source_path,
                                           const tf::tstring& proto_data) {
   if (proto_data.empty()) {
     LOG(INFO) << "proto_data is empty. Reading from source_path: "
@@ -121,7 +121,7 @@ Status ModuleTuningDataIterator::LoadData(const tf::tstring& source_path,
   //   ml_lib::NormalizeDistAcrossBins(/*num_bins=*/5, batch_size_,
   //                                   &config_profiles_);
   // }
-  return OkStatus();
+  return absl::OkStatus();
 }
 
 void ModuleTuningDataIterator::FilterOutSamplesWithoutNormalization() {
@@ -219,7 +219,7 @@ std::vector<std::vector<int>> ModuleTuningDataIterator::GetModuleConfigValues()
   return FeaturizeLayoutConfig(GetModuleConfig()->layout_config());
 }
 
-Status OpTuningDataIterator::LoadData(const tf::tstring& source_path,
+absl::Status OpTuningDataIterator::LoadData(const tf::tstring& source_path,
                                       const tf::tstring& proto_data) {
   if (proto_data.empty()) {
     LOG(INFO) << "proto_data is empty. Reading from source_path: "
@@ -238,20 +238,20 @@ Status OpTuningDataIterator::LoadData(const tf::tstring& source_path,
       TF_RETURN_IF_ERROR(LoadModuleTuningProto(&module_tuning_data));
     }
   }
-  return OkStatus();
+  return absl::OkStatus();
 }
 
-Status OpTuningDataIterator::LoadModuleTuningProto(
+absl::Status OpTuningDataIterator::LoadModuleTuningProto(
     tpu_graphs::ModuleTuningData* module_tuning_data) {
   // Read in HLO module.
   if (!module_tuning_data->has_module()) {
-    return OkStatus();
+    return absl::OkStatus();
   }
 
   if (fingerprint_range_) {
     if (module_tuning_data->fingerprint() < fingerprint_range_->first ||
         module_tuning_data->fingerprint() > fingerprint_range_->second) {
-      return OkStatus();
+      return absl::OkStatus();
     }
   }
   const HloModuleProto* hlo_module_proto = &module_tuning_data->module();
@@ -259,7 +259,7 @@ Status OpTuningDataIterator::LoadModuleTuningProto(
   // Skip modules that have empty tile size configs.
   for (const auto& config : module_tuning_data->runs()) {
     if (!config.op_config().has_tile_size_config()) {
-      return OkStatus();
+      return absl::OkStatus();
     }
   }
 
@@ -301,7 +301,7 @@ Status OpTuningDataIterator::LoadModuleTuningProto(
 
   name_to_op_idx_[hlo_module_proto->name()] = op_modules_.size() - 1;
 
-  return OkStatus();
+  return absl::OkStatus();
 }
 
 void OpTuningDataIterator::FilterOutSamplesWithoutNormalization() {
