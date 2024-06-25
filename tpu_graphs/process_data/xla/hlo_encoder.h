@@ -23,14 +23,14 @@ limitations under the License.
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "tpu_graphs/process_data/xla/hlo_opcode.h"
 #include "tpu_graphs/proto/tuning.pb.h"
 #include "tensorflow/compiler/xla/service/hlo.pb.h"
-#include "tensorflow/compiler/xla/status.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/tensor.h"
-#include "tensorflow/core/platform/statusor.h"
 
 namespace xla {
 namespace ml_lib {
@@ -178,7 +178,7 @@ class AdjMatrixBuilder {
   // Finalize construction of the tensors given to the constructor. After
   // calling `Finalize`, the `AdjMatrixBuilder` should no longer be used and
   // the given tensors describe a valid sparse tensor.
-  virtual Status Finalize() = 0;
+  virtual absl::Status Finalize() = 0;
 
  protected:
   // Each `identifiers_maps_[i]` is a mapping from opaque identifiers to
@@ -205,7 +205,7 @@ class EdgeListAdjMatrixBuilder : public AdjMatrixBuilder {
   void AdvanceNode() override {}
   void AddEdge(const int64_t from, const int64_t to) override;
 
-  Status Finalize() override;
+  absl::Status Finalize() override;
 
  private:
   tf::Tensor* const indices_out_;
@@ -246,7 +246,7 @@ class DenseNeighborIndicesBuilder : public AdjMatrixBuilder {
   void AdvanceModule() override;
   void AdvanceNode() override;
   void AddEdge(const int64_t from, const int64_t to) override;
-  Status Finalize() override;
+  absl::Status Finalize() override;
 
  private:
   int64_t module_id_ = -1;
@@ -279,12 +279,12 @@ class HloEncoder {
         include_features_(GetIncludeFeatureBits(task)),
         count_neighbors_(count_neighbors) {}
 
-  Status Finalize();
+  absl::Status Finalize();
 
   // Encodes the given HLO module with window_config if specified.
   // If computation_unique_id is given, encodes only the specified computation.
   // Otherwise, encodes all computations.
-  Status EncodeHloModule(
+  absl::Status EncodeHloModule(
       const HloModuleProto& module,
       const std::optional<int64_t> computation_unique_id = std::nullopt);
 
@@ -378,8 +378,8 @@ class SparseHloEncoder : public HloEncoder {
   // used as the underlying storage for the builders.
   //
   // Return the number of outputs allocated in context.
-  tf::StatusOr<int> CreateOutputBuilders(const HloModuleStat& stat,
-                                         tf::OpKernelContext* context);
+  absl::StatusOr<int> CreateOutputBuilders(const HloModuleStat& stat,
+                                           tf::OpKernelContext* context);
 
   struct Outputs {
     tf::Tensor* opcodes_values;
